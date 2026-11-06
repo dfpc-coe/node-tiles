@@ -1,0 +1,75 @@
+{
+    "name": "@tak-ps/node-tiles",
+    "type": "module",
+    "version": "1.0.0",
+    "description": "Tile, Raster, Terrain and Vector tile primitives with DEM utilities such as slope shading",
+    "author": "Nick Ingalls <nick@ingalls.ca>",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./node": {
+            "types": "./dist/node.d.ts",
+            "import": "./dist/node.js"
+        }
+    },
+    "files": [
+        "dist/index.*",
+        "dist/node.*",
+        "dist/lib",
+        "lib",
+        "index.ts",
+        "node.ts"
+    ],
+    "engines": {
+        "node": ">= 26"
+    },
+    "scripts": {
+        "test": "c8 --reporter=lcov --reporter html tsx --test test/*.test.ts",
+        "lint": "eslint *.ts test/ lib/",
+        "check": "tsc --noEmit",
+        "doc": "typedoc index.ts node.ts",
+        "build": "tsc --build",
+        "pretest": "npm run lint"
+    },
+    "dependencies": {
+        "@mapbox/point-geometry": "^1.1.0",
+        "@mapbox/vector-tile": "^3.0.0",
+        "@maplibre/vt-pbf": "^4.3.3",
+        "@types/geojson": "^7946.0.16",
+        "pbf": "^5.1.2",
+        "sharp": "^0.35.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^26.0.0",
+        "c8": "^12.0.0",
+        "eslint": "^10.0.0",
+        "tsx": "^4.19.4",
+        "typedoc": "^0.28.1",
+        "typescript": "^6.0.0",
+        "typescript-eslint": "^8.0.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dfpc-coe/node-tiles"
+    },
+    "keywords": [
+        "tiles",
+        "mvt",
+        "vector-tile",
+        "terrain",
+        "dem",
+        "slope",
+        "raster",
+        "mercator"
+    ],
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/dfpc-coe/node-tiles/issues"
+    },
+    "homepage": "https://github.com/dfpc-coe/node-tiles#readme"
+}

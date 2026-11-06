@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "declaration": true,
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "target": "es2022",
+        "lib": ["es2022"],
+        "types": ["node"],
+        "noImplicitAny": true,
+        "noUncheckedIndexedAccess": false,
+        "sourceMap": true,
+        "outDir": "dist"
+    },
+    "include": [
+        "index.ts",
+        "node.ts",
+        "lib/**/*.ts",
+        "test/**/*.ts"
+    ]
+}

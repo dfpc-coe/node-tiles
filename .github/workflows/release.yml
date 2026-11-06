@@ -1,0 +1,40 @@
+name: NPM Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: npm install
+        run: npm install
+
+      - name: npm run build
+        run: npm run build
+
+      - name: npm publish
+        run: npm publish --provenance --access public
+
+      - name: Generate CHANGELOG
+        run: grep -Pzo "### ${{ github.ref_name }}(?s).*?(?=###)" CHANGELOG.md > RELEASE
+
+      - name: Github Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: RELEASE
