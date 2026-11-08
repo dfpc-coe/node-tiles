@@ -1,6 +1,6 @@
 <h1 align=center>node-tiles</h1>
 
-<p align=center>Tile, Raster, Terrain and Vector tile primitives with DEM utilities</p>
+<p align=center>Tile, Raster, Terrain and Vector tile primitives with DEM utilities such as slope and hillshade</p>
 
 ## Installation
 
@@ -63,13 +63,28 @@ const terrain = Terrain.decode(tile, raster, 'terrarium');
 
 terrain.at(x, y);               // metres, clamped to the grid edge
 terrain.range();                // [min, max]
-terrain.slope();                // Float32Array of degrees (Horn's method)
+terrain.gradient();             // { dzdx, dzdy } in m/m (Horn's method)
+terrain.slope();                // Float32Array of degrees
+terrain.aspect();               // Float32Array of compass degrees, -1 where flat
 terrain.overzoom(childTile);    // bilinear resample covering a descendant tile
 terrain.encode('mapbox');       // back to an RGB raster
 ```
 
+Kernels such as slope and hillshade need the pixels just outside the tile, so
+a terrain can carry padding read from its neighbours. Without it, edge pixels
+are computed against clamped values and shading shows a seam at every tile edge.
+
+```ts
+const padded = terrain.mosaic(neighbourTerrains, 1);   // matched by tile address
+padded.pad;                     // 1
+padded.at(-1, -1);              // a pixel of the north-west neighbour
+padded.overzoom(childTile);     // keeps the padding
+```
+
 `Terrain.fetch` reads a tile from a `TerrainSource`, walking up to parent tiles
-and overzooming when the source has nothing at the requested zoom:
+and overzooming when the source has nothing at the requested zoom. With `pad`
+it also reads the neighbours the tile touches (all eight at the source's own
+zoom, only the bordering ones when overzooming):
 
 ```ts
 const source: TerrainSource = {
@@ -79,7 +94,7 @@ const source: TerrainSource = {
     tile: async (tile) => await loadRaster(tile),   // Raster | null
 };
 
-const terrain = await Terrain.fetch(Tile.fromKey('14/3392/6208'), source, { maxOverzoom: 4 });
+const terrain = await Terrain.fetch(Tile.fromKey('14/3392/6208'), source, { maxOverzoom: 4, pad: 1 });
 ```
 
 ### Vector
@@ -125,6 +140,30 @@ const raster = Slope.render(terrain, classes);   // transparent RGBA Raster
 
 `Slope.DEFAULT_CLASSES` holds the avalanche bands (27, 30, 35, 45 and 50 degrees).
 
+### Hillshade
+
+Relief shading from a light direction, with the `standard` ESRI/GDAL formula
+(MapLibre's `basic`), GDAL's `combined` and `igor` variants and a
+`multidirectional` blend of four lights.
+
+```ts
+import { Hillshade } from '@tak-ps/node-tiles';
+
+const opts = Hillshade.parse({ azimuth: '315', altitude: '45', method: 'multidirectional' });
+Hillshade.serialize(opts);              // normalised strings for a tile URL or cache key
+
+const shade = Hillshade.shade(terrain, opts);      // Float32Array, 0 dark to 1 lit
+Hillshade.grey(shade, terrain.size);               // opaque 1-channel Raster
+Hillshade.render(terrain, opts);                   // transparent RGBA overlay
+```
+
+`render` leaves flat ground transparent and paints darker pixels with `shadow`
+and brighter ones with `highlight`, alpha growing with the distance from
+`Hillshade.neutral(opts)`. Options default to a light from 315° at 45° with no
+exaggeration, black shadows and white highlights; `exaggeration` scales the
+terrain before shading. Hillshade is continuous tone, so encode it as WebP or
+a non-palette PNG.
+
 ### Node
 
 ```ts
@@ -140,8 +179,9 @@ const source = imageTerrainSource({
     fetch: async (tile) => await fetchTileBytes(tile),   // Uint8Array | ArrayBuffer | null
 });
 
-const terrain = await Terrain.fetch(tile, source);
+const terrain = await Terrain.fetch(tile, source, { pad: 1 });
 if (terrain) await encodePNG(Slope.render(terrain), { palette: true });
+if (terrain) await encodeWebP(Hillshade.render(terrain));
 ```
 
 ## Development

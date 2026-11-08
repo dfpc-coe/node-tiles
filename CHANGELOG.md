@@ -11,6 +11,12 @@
 
 ### Pending
 
+### v1.1.0 - 2026-11-08
+
+- :tada: Introduce Hillshade rendering for terrain tiles with customizable light direction and intensity
+
+### v1.0.0 - 2026-11-06
+
 - :tada: `Tile` - Web Mercator tile addressing, hierarchy, neighbours, bounds and pixel/tile-space projection
 - :tada: `Raster` - channel-interleaved pixel buffer with crop, RGBA expansion and pixel access
 - :tada: `Terrain` - DEM tile decoded from `terrarium` or `mapbox` encoded rasters with Horn slope, bilinear overzoom and a source walk that falls back to parent tiles

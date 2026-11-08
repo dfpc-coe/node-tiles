@@ -71,3 +71,32 @@ test('Slope.render: unclassified pixels are transparent and custom classes apply
 
     assert.throws(() => Slope.colorize(new Float32Array(3), 2), RangeError);
 });
+
+test('Slope.render: a padded terrain classifies edge pixels too', () => {
+    const size = 8;
+    const neighbors: Terrain[] = [];
+
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const tile = DEM.neighbor(dx, dy)!;
+            const elevation = new Float32Array(size * size);
+            const rise = Math.tan(33 * Math.PI / 180);
+
+            for (let py = 0; py < size; py++) {
+                const cell = DEM.resolution(py, size);
+                for (let px = 0; px < size; px++) elevation[py * size + px] = 1000 + (dx * size + px) * cell * rise;
+            }
+
+            neighbors.push(new Terrain(tile, size, elevation));
+        }
+    }
+
+    const clamped = Slope.render(plane(size, 33));
+    assert.notDeepEqual(clamped.get(0, 4), [255, 152, 0, 200]);
+
+    const seamless = Slope.render(plane(size, 33).mosaic(neighbors));
+    for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) assert.deepEqual(seamless.get(px, py), [255, 152, 0, 200], `${px},${py}`);
+    }
+});

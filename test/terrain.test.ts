@@ -161,3 +161,183 @@ test('Terrain: fetch walks up through missing tiles and stops below minzoom', as
 
     await assert.rejects(Terrain.fetch(DEM, source({}), { maxOverzoom: -1 }), RangeError);
 });
+
+/** Sample a continuous surface defined over global pixel coordinates at the given zoom */
+function surface(tile: Tile, size: number, fn: (gx: number, gy: number) => number): Terrain {
+    const elevation = new Float32Array(size * size);
+
+    for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) {
+            elevation[py * size + px] = fn(tile.x * size + px, tile.y * size + py);
+        }
+    }
+
+    return new Terrain(tile, size, elevation);
+}
+
+/** Linear surface anchored on the DEM tile's origin at 8px so encoded values stay in range */
+const LINEAR = (gx: number, gy: number) => 1000 + (gx - DEM.x * 8) * 10 + (gy - DEM.y * 8) * 4;
+
+function ring(center: Tile, size: number, fn = LINEAR): Terrain[] {
+    const neighbors: Terrain[] = [];
+
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const tile = center.neighbor(dx, dy);
+            if (tile) neighbors.push(surface(tile, size, fn));
+        }
+    }
+
+    return neighbors;
+}
+
+test('Terrain: padded grids validate, address negative pixels and exclude padding from range and encode', () => {
+    assert.throws(() => new Terrain(DEM, 2, new Float32Array(4), -1), RangeError);
+    assert.throws(() => new Terrain(DEM, 2, new Float32Array(4), 1), /padded by 1 needs 16/);
+
+    const padded = new Terrain(DEM, 2, Float32Array.from([
+        9, 9, 9, 9,
+        9, 1, 2, 9,
+        9, 3, 4, 9,
+        9, 9, 9, 9,
+    ]), 1);
+
+    assert.equal(padded.stride, 4);
+    assert.equal(padded.at(0, 0), 1);
+    assert.equal(padded.at(1, 1), 4);
+    assert.equal(padded.at(-1, 0), 9);
+    assert.equal(padded.at(2, 2), 9);
+    assert.equal(padded.at(-7, 7), 9);
+    assert.deepEqual(padded.range(), [1, 4]);
+
+    const encoded = Terrain.decode(DEM, padded.encode('terrarium'), 'terrarium');
+    assert.equal(encoded.pad, 0);
+    assert.deepEqual(Array.from(encoded.elevation), [1, 2, 3, 4]);
+});
+
+test('Terrain: mosaic removes edge artefacts from the gradient', () => {
+    const size = 8;
+    const center = surface(DEM, size, LINEAR);
+
+    const clamped = center.gradient();
+    assert.ok(Math.abs(clamped.dzdx[0] * DEM.resolution(0, size) - 10) > 1, 'unpadded edge pixel is wrong');
+
+    const padded = center.mosaic(ring(DEM, size));
+    assert.equal(padded.pad, 1);
+    assert.equal(padded.size, size);
+    assert.ok(padded.tile.equals(DEM));
+    assert.equal(padded.at(-1, -1), LINEAR(DEM.x * size - 1, DEM.y * size - 1));
+    assert.equal(padded.at(size, size), LINEAR(DEM.x * size + size, DEM.y * size + size));
+
+    const { dzdx, dzdy } = padded.gradient();
+    for (let py = 0; py < size; py++) {
+        const cell = DEM.resolution(py, size);
+        for (let px = 0; px < size; px++) {
+            assert.ok(Math.abs(dzdx[py * size + px] * cell - 10) < 1e-3, `dzdx ${px},${py}`);
+            assert.ok(Math.abs(dzdy[py * size + px] * cell - 4) < 1e-3, `dzdy ${px},${py}`);
+        }
+    }
+
+    const wide = center.mosaic(ring(DEM, size), 3);
+    assert.equal(wide.stride, size + 6);
+    assert.equal(wide.at(-3, size + 2), LINEAR(DEM.x * size - 3, DEM.y * size + size + 2));
+});
+
+test('Terrain: mosaic clamps missing neighbours, wraps the antimeridian and rejects strangers', () => {
+    const size = 4;
+    const center = surface(DEM, size, LINEAR);
+
+    const partial = center.mosaic([surface(DEM.neighbor(1, 0)!, size, LINEAR)]);
+    assert.equal(partial.at(size, 0), LINEAR(DEM.x * size + size, DEM.y * size));
+    assert.equal(partial.at(-1, 0), center.at(0, 0));
+    assert.equal(partial.at(-1, -1), center.at(0, 0));
+
+    const west = new Tile(12, 0, 1024);
+    const east = new Tile(12, 4095, 1024);
+    const wrapped = surface(west, size, LINEAR).mosaic([surface(east, size, LINEAR)]);
+    assert.equal(wrapped.at(-1, 0), LINEAR(east.x * size + size - 1, east.y * size));
+
+    assert.throws(() => center.mosaic([], 0), RangeError);
+    assert.throws(() => center.mosaic([], size + 1), RangeError);
+    assert.throws(() => center.mosaic([surface(new Tile(11, 1024, 512), size, LINEAR)]), /cannot neighbour/);
+    assert.throws(() => center.mosaic([surface(DEM.neighbor(1, 0)!, size + 1, LINEAR)]), /cannot neighbour/);
+    assert.throws(() => center.mosaic([surface(DEM.neighbor(2, 0)!, size, LINEAR)]), /not adjacent/);
+    assert.throws(() => center.mosaic([center]), /not adjacent/);
+});
+
+test('Terrain: overzoom keeps padding and reads real neighbours for edge children', () => {
+    const size = 8;
+    const padded = surface(DEM, size, LINEAR).mosaic(ring(DEM, size));
+    const child = new Tile(13, DEM.x * 2, DEM.y * 2);
+    const zoomed = padded.overzoom(child);
+
+    assert.equal(zoomed.pad, 1);
+    assert.equal(zoomed.stride, size + 2);
+
+    const { dzdx } = zoomed.gradient();
+    for (let py = 0; py < size; py++) {
+        const cell = child.resolution(py, size);
+        for (let px = 0; px < size; px++) {
+            assert.ok(Math.abs(dzdx[py * size + px] * cell - 5) < 1e-3, `dzdx ${px},${py} = ${dzdx[py * size + px] * cell}`);
+        }
+    }
+});
+
+test('Terrain: gradient and aspect follow the surface', () => {
+    const size = 8;
+    const east = plane(DEM, size, 30).mosaic(ring(DEM, size, (gx, gy) => plane(DEM, size, 30).at(gx - DEM.x * size, gy - DEM.y * size)));
+    const { dzdx, dzdy } = east.gradient();
+    assert.ok(Math.abs(dzdx[size * 4 + 4] - Math.tan(30 * Math.PI / 180)) < 1e-3);
+    assert.ok(Math.abs(dzdy[size * 4 + 4]) < 1e-3);
+    assert.ok(east.aspect().every(a => Math.abs(a - 270) < 0.5), 'rising eastward faces west');
+
+    const south = surface(DEM, size, (_gx, gy) => gy * 10);
+    const aspect = south.aspect();
+    assert.ok(Math.abs(aspect[size * 4 + 4]) < 1e-6, 'rising southward faces north');
+
+    const north = surface(DEM, size, (_gx, gy) => -gy * 10).aspect();
+    assert.ok(Math.abs(north[size * 4 + 4] - 180) < 1e-6);
+
+    const flat = new Terrain(DEM, 2, new Float32Array(4).fill(7)).aspect();
+    assert.ok(flat.every(a => a === -1));
+});
+
+test('Terrain: fetch with pad reads only the neighbours the tile touches', async () => {
+    const size = 8;
+    const tiles: Record<string, Terrain> = { [DEM.key]: surface(DEM, size, LINEAR) };
+    for (const neighbor of ring(DEM, size)) tiles[neighbor.tile.key] = neighbor;
+
+    const all: string[] = [];
+    const padded = await Terrain.fetch(DEM, source(tiles, all), { pad: 1 });
+    assert.ok(padded);
+    assert.equal(padded.pad, 1);
+    assert.equal(all.length, 9);
+    assert.equal(padded.at(-1, -1), LINEAR(DEM.x * size - 1, DEM.y * size - 1));
+
+    const interior: string[] = [];
+    const inner = await Terrain.fetch(new Tile(14, DEM.x * 4 + 1, DEM.y * 4 + 2), source(tiles, interior), { pad: 1 });
+    assert.ok(inner);
+    assert.deepEqual(interior, [DEM.key]);
+
+    const corner: string[] = [];
+    const nw = await Terrain.fetch(new Tile(14, DEM.x * 4, DEM.y * 4), source(tiles, corner), { pad: 1 });
+    assert.ok(nw);
+    assert.deepEqual(corner.slice(1).sort(), [DEM.neighbor(-1, -1)!.key, DEM.neighbor(0, -1)!.key, DEM.neighbor(-1, 0)!.key].sort());
+
+    const { dzdx } = nw.gradient();
+    assert.ok(Math.abs(dzdx[0] * nw.tile.resolution(0, size) - 2.5) < 1e-3);
+
+    const sparse: string[] = [];
+    const alone = await Terrain.fetch(DEM, source({ [DEM.key]: tiles[DEM.key] }, sparse), { pad: 1 });
+    assert.ok(alone);
+    assert.equal(alone.at(-1, 0), alone.at(0, 0));
+
+    const top = new Tile(12, 2048, 0);
+    const polar: string[] = [];
+    assert.ok(await Terrain.fetch(top, source({ [top.key]: surface(top, size, LINEAR) }, polar), { pad: 1 }));
+    assert.equal(polar.length, 6);
+
+    await assert.rejects(Terrain.fetch(DEM, source({}), { pad: -1 }), RangeError);
+    await assert.rejects(Terrain.fetch(DEM, source({}), { pad: 1.5 }), RangeError);
+});

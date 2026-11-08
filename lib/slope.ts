@@ -1,7 +1,9 @@
 import { Raster } from './raster.js';
+import { parseHex, toHex, toCSS } from './color.js';
+import type { RGBA } from './color.js';
 import type { Terrain } from './terrain.js';
 
-export type RGBA = [number, number, number, number];
+export type { RGBA } from './color.js';
 
 /** A slope angle band coloured as [lower, upper) degrees */
 export interface SlopeClass {
@@ -16,7 +18,7 @@ export interface LegendEntry {
     color: string;
 }
 
-const LAYER_PATTERN = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?):#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
+const LAYER_PATTERN = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?):(#?[0-9a-f]{6}|#?[0-9a-f]{8})$/i;
 
 /**
  * Slope angle shading: parse and serialise class definitions, describe them
@@ -56,34 +58,19 @@ export class Slope {
                 throw new Error(`Invalid slope class "${value}": expected 0 <= lower < upper <= 90`);
             }
 
-            const hex = match[3];
-            const color: RGBA = [
-                parseInt(hex.slice(0, 2), 16),
-                parseInt(hex.slice(2, 4), 16),
-                parseInt(hex.slice(4, 6), 16),
-                hex.length === 8 ? parseInt(hex.slice(6, 8), 16) : 255,
-            ];
-
-            return { lower, upper, color };
+            return { lower, upper, color: parseHex(match[3]) };
         });
     }
 
     /** Normalised `lower:upper:hex` strings, the inverse of {@link parse} */
     static serialize(classes: readonly SlopeClass[]): string[] {
-        return classes.map(({ lower, upper, color }) => {
-            const hex = color
-                .slice(0, color[3] === 255 ? 3 : 4)
-                .map(c => c.toString(16).padStart(2, '0'))
-                .join('');
-
-            return `${lower}:${upper}:${hex}`;
-        });
+        return classes.map(({ lower, upper, color }) => `${lower}:${upper}:${toHex(color)}`);
     }
 
     static legend(classes: readonly SlopeClass[] = Slope.DEFAULT_CLASSES): LegendEntry[] {
-        return classes.map(({ lower, upper, color: [r, g, b, a] }) => ({
+        return classes.map(({ lower, upper, color }) => ({
             label: upper >= 90 ? `${lower}°+` : `${lower}-${upper}°`,
-            color: `rgba(${r}, ${g}, ${b}, ${Math.round(a / 255 * 100) / 100})`,
+            color: toCSS(color),
         }));
     }
 
@@ -107,7 +94,7 @@ export class Slope {
         return raster;
     }
 
-    /** Render slope angle classes for a terrain tile as an RGBA raster */
+    /** Render slope angle classes for a terrain tile as an RGBA raster; use a padded terrain to avoid seams at tile edges */
     static render(terrain: Terrain, classes: readonly SlopeClass[] = Slope.DEFAULT_CLASSES): Raster {
         return Slope.colorize(terrain.slope(), terrain.size, classes);
     }
