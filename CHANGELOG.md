@@ -11,6 +11,10 @@
 
 ### Pending
 
+### v1.2.1 - 2026-11-08
+
+- :rocket: Configure node-tiles
+
 ### v1.2.0 - 2026-11-08
 
 - :bug: Reset versioning
