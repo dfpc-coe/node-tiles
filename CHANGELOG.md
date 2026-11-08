@@ -11,6 +11,10 @@
 
 ### Pending
 
+### v1.2.0 - 2026-11-08
+
+- :bug: Reset versioning
+
 ### v1.1.0 - 2026-11-08
 
 - :tada: Introduce Hillshade rendering for terrain tiles with customizable light direction and intensity
