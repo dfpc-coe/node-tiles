@@ -34,8 +34,8 @@ export interface PNGOptions {
 }
 
 export async function encodePNG(raster: Raster, opts: PNGOptions = {}): Promise<Buffer> {
-    return await sharp(toBuffer(raster.data), {
-        raw: { width: raster.width, height: raster.height, channels: raster.channels as 1 | 2 | 3 | 4 },
+    return sharp(toBuffer(raster.data), {
+        raw: { width: raster.width, height: raster.height, channels: raster.channels },
     }).png({
         palette: opts.palette ?? false,
         ...(opts.compressionLevel !== undefined ? { compressionLevel: opts.compressionLevel } : {}),
@@ -48,8 +48,8 @@ export interface WebPOptions {
 }
 
 export async function encodeWebP(raster: Raster, opts: WebPOptions = {}): Promise<Buffer> {
-    return await sharp(toBuffer(raster.data), {
-        raw: { width: raster.width, height: raster.height, channels: raster.channels as 1 | 2 | 3 | 4 },
+    return sharp(toBuffer(raster.data), {
+        raw: { width: raster.width, height: raster.height, channels: raster.channels },
     }).webp({
         ...(opts.quality !== undefined ? { quality: opts.quality } : {}),
         ...(opts.lossless !== undefined ? { lossless: opts.lossless } : {}),
@@ -72,7 +72,7 @@ export function imageTerrainSource(opts: ImageTerrainSourceOptions): TerrainSour
         maxzoom: opts.maxzoom,
         tile: async (tile) => {
             const raw = await opts.fetch(tile);
-            return raw ? await decodeImage(raw) : null;
+            return raw ? decodeImage(raw) : null;
         },
     };
 }

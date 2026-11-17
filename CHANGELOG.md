@@ -11,6 +11,12 @@
 
 ### Pending
 
+### v1.3.0 - 2026-11-17
+
+- :tada: `Contour` - marching squares isolines for terrain tiles with minor/index levels, unit multiplier and vector tile output
+- :arrow_up: Replace ESLint with strict type-aware oxlint and build with TypeScript 7
+- :tada: `Raster.channels` is typed as `RasterChannels` (`1 | 2 | 3 | 4`)
+
 ### v1.2.1 - 2026-11-08
 
 - :rocket: Configure node-tiles

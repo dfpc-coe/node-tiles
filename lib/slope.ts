@@ -42,7 +42,7 @@ export class Slope {
      */
     static parse(raw: string | string[] | undefined): SlopeClass[] {
         const values = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
-        if (!values.length) return [...Slope.DEFAULT_CLASSES];
+        if (values.length === 0) return [...Slope.DEFAULT_CLASSES];
 
         if (values.length > Slope.MAX_CLASSES) {
             throw new Error(`At most ${Slope.MAX_CLASSES} slope classes are allowed`);

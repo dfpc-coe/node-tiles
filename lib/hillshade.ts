@@ -41,10 +41,14 @@ export interface HillshadeColorOptions {
 const DEG = Math.PI / 180;
 const MULTIDIRECTIONAL_AZIMUTHS = [225, 270, 315, 360];
 
+function isMethod(value: string): value is HillshadeMethod {
+    return HILLSHADE_METHODS.some(method => method === value);
+}
+
 function number(input: HillshadeInput, key: keyof HillshadeOptions, fallback: number, min: number, max: number, exclusiveMin = false): number {
     const raw = input[key];
     if (raw === undefined) return fallback;
-    if (Array.isArray(raw)) throw new Error(`Invalid hillshade ${key}: expected a single value`);
+    if (Array.isArray(raw)) throw new TypeError(`Invalid hillshade ${key}: expected a single value`);
 
     const value = Number(raw);
     if (raw.trim() === '' || !Number.isFinite(value) || value > max || value < min || (exclusiveMin && value === min)) {
@@ -57,7 +61,7 @@ function number(input: HillshadeInput, key: keyof HillshadeOptions, fallback: nu
 function color(input: HillshadeInput, key: 'shadow' | 'highlight', fallback: RGBA): RGBA {
     const raw = input[key];
     if (raw === undefined) return fallback;
-    if (Array.isArray(raw)) throw new Error(`Invalid hillshade ${key}: expected a single value`);
+    if (Array.isArray(raw)) throw new TypeError(`Invalid hillshade ${key}: expected a single value`);
 
     try {
         return parseHex(raw);
@@ -89,11 +93,11 @@ export class Hillshade {
         let method = defaults.method;
 
         if (rawMethod !== undefined) {
-            if (Array.isArray(rawMethod) || !HILLSHADE_METHODS.includes(rawMethod as HillshadeMethod)) {
-                throw new Error(`Invalid hillshade method "${rawMethod}": expected one of ${HILLSHADE_METHODS.join(', ')}`);
+            if (Array.isArray(rawMethod) || !isMethod(rawMethod)) {
+                throw new Error(`Invalid hillshade method "${String(rawMethod)}": expected one of ${HILLSHADE_METHODS.join(', ')}`);
             }
 
-            method = rawMethod as HillshadeMethod;
+            method = rawMethod;
         }
 
         return {
@@ -172,7 +176,7 @@ export class Hillshade {
                     value = sum / weights;
                     break;
                 }
-                default:
+                case 'standard':
                     value = Hillshade.standard(slope, aspect, light, cosZenith, sinZenith);
             }
 
@@ -217,23 +221,23 @@ export class Hillshade {
 
         for (let i = 0; i < shade.length; i++) {
             const value = shade[i];
-            let color: RGBA;
+            let tint: RGBA;
             let strength: number;
 
             if (value < neutral) {
-                color = shadow;
+                tint = shadow;
                 strength = (neutral - value) / neutral;
             } else if (value > neutral) {
-                color = highlight;
+                tint = highlight;
                 strength = (value - neutral) / (1 - neutral);
             } else {
                 continue;
             }
 
-            data[i * 4] = color[0];
-            data[i * 4 + 1] = color[1];
-            data[i * 4 + 2] = color[2];
-            data[i * 4 + 3] = Math.round(color[3] * Math.min(strength, 1));
+            data[i * 4] = tint[0];
+            data[i * 4 + 1] = tint[1];
+            data[i * 4 + 2] = tint[2];
+            data[i * 4 + 3] = Math.round(tint[3] * Math.min(strength, 1));
         }
 
         return raster;

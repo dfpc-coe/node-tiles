@@ -158,12 +158,12 @@ export class Terrain {
             throw new RangeError(`Invalid terrain padding ${pad} for a ${size}px tile`);
         }
 
-        const grid: (Terrain | null)[] = new Array(9).fill(null);
+        const grid = Array.from({ length: 9 }, (): Terrain | null => null);
         grid[4] = this;
 
         for (const neighbor of neighbors) {
             if (neighbor.tile.z !== tile.z || neighbor.size !== size) {
-                throw new RangeError(`Terrain ${neighbor.tile} (${neighbor.size}px) cannot neighbour ${tile} (${size}px)`);
+                throw new RangeError(`Terrain ${neighbor.tile.key} (${neighbor.size}px) cannot neighbour ${tile.key} (${size}px)`);
             }
 
             let dx = neighbor.tile.x - tile.x;
@@ -172,7 +172,7 @@ export class Terrain {
             const dy = neighbor.tile.y - tile.y;
 
             if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0)) {
-                throw new RangeError(`Terrain ${neighbor.tile} is not adjacent to ${tile}`);
+                throw new RangeError(`Terrain ${neighbor.tile.key} is not adjacent to ${tile.key}`);
             }
 
             grid[(dy + 1) * 3 + (dx + 1)] = neighbor;
@@ -205,7 +205,7 @@ export class Terrain {
         const dz = child.z - this.tile.z;
 
         if (dz < 1 || !this.tile.contains(child)) {
-            throw new RangeError(`Tile ${child} is not a descendant of ${this.tile}`);
+            throw new RangeError(`Tile ${child.key} is not a descendant of ${this.tile.key}`);
         }
 
         const { size, pad } = this;
@@ -340,8 +340,8 @@ export class Terrain {
         const ox = target.x % scale;
         const oy = target.y % scale;
 
-        const dxs = [ox === 0 ? -1 : NaN, 0, ox === scale - 1 ? 1 : NaN].filter(Number.isFinite);
-        const dys = [oy === 0 ? -1 : NaN, 0, oy === scale - 1 ? 1 : NaN].filter(Number.isFinite);
+        const dxs = [ox === 0 ? -1 : NaN, 0, ox === scale - 1 ? 1 : NaN].filter(d => Number.isFinite(d));
+        const dys = [oy === 0 ? -1 : NaN, 0, oy === scale - 1 ? 1 : NaN].filter(d => Number.isFinite(d));
 
         const tiles: Tile[] = [];
 

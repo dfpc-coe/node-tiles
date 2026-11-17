@@ -26,7 +26,7 @@ test('Raster: pixel access', () => {
 
     assert.throws(() => raster.get(2, 0), RangeError);
     assert.throws(() => raster.get(0, -1), RangeError);
-    assert.throws(() => raster.set(0, 0, [1, 2]), RangeError);
+    assert.throws(() => { raster.set(0, 0, [1, 2]); }, RangeError);
 });
 
 test('Raster: toRGBA expands every channel layout', () => {

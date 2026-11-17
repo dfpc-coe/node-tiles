@@ -1,5 +1,11 @@
 export type Pixel = number[];
 
+export type RasterChannels = 1 | 2 | 3 | 4;
+
+function isChannels(channels: number): channels is RasterChannels {
+    return channels === 1 || channels === 2 || channels === 3 || channels === 4;
+}
+
 export interface RasterInit {
     width: number;
     height: number;
@@ -15,7 +21,7 @@ export interface RasterInit {
 export class Raster {
     readonly width: number;
     readonly height: number;
-    readonly channels: number;
+    readonly channels: RasterChannels;
     readonly data: Uint8Array;
 
     constructor(init: RasterInit) {
@@ -23,7 +29,7 @@ export class Raster {
 
         if (!Number.isInteger(width) || width <= 0) throw new RangeError(`Invalid raster width: ${width}`);
         if (!Number.isInteger(height) || height <= 0) throw new RangeError(`Invalid raster height: ${height}`);
-        if (!Number.isInteger(channels) || channels < 1 || channels > 4) {
+        if (!isChannels(channels)) {
             throw new RangeError(`Invalid raster channel count: ${channels}`);
         }
 
@@ -105,7 +111,7 @@ export class Raster {
                     dst[d + 2] = src[s + 2];
                     dst[d + 3] = 255;
                     break;
-                default:
+                case 4:
                     dst[d] = src[s];
                     dst[d + 1] = src[s + 1];
                     dst[d + 2] = src[s + 2];

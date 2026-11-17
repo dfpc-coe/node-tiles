@@ -28,7 +28,7 @@ test('Slope.parse: defaults, formats and limits', () => {
     assert.throws(() => Slope.parse('30:35:zzz'), /expected lower:upper:hex_color/);
     assert.throws(() => Slope.parse('35:30:ff0000'), /0 <= lower < upper <= 90/);
     assert.throws(() => Slope.parse('30:91:ff0000'), /0 <= lower < upper <= 90/);
-    assert.throws(() => Slope.parse(new Array(Slope.MAX_CLASSES + 1).fill('30:35:ff0000')), /At most/);
+    assert.throws(() => Slope.parse(Array.from({ length: Slope.MAX_CLASSES + 1 }, () => '30:35:ff0000')), /At most/);
 });
 
 test('Slope.serialize: inverse of parse with normalised hex', () => {

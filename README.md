@@ -1,6 +1,6 @@
 <h1 align=center>node-tiles</h1>
 
-<p align=center>Tile, Raster, Terrain and Vector tile primitives with DEM utilities such as slope and hillshade</p>
+<p align=center>Tile, Raster, Terrain and Vector tile primitives with DEM utilities such as slope, hillshade and contours</p>
 
 ## Installation
 
@@ -163,6 +163,39 @@ and brighter ones with `highlight`, alpha growing with the distance from
 exaggeration, black shadows and white highlights; `exaggeration` scales the
 terrain before shading. Hillshade is continuous tone, so encode it as WebP or
 a non-palette PNG.
+
+### Contour
+
+Contour lines traced with marching squares, following
+[maplibre-contour](https://github.com/onthegomap/maplibre-contour): every
+elevation is built in a single pass over the tile and returned as lines in
+tile space or as a vector tile.
+
+```ts
+import { Contour, Terrain } from '@tak-ps/node-tiles';
+
+const opts = Contour.parse({ intervals: '40,200', multiplier: String(Contour.FEET) });
+Contour.serialize(opts);                // normalised strings for a tile URL or cache key
+
+const terrain = await Terrain.fetch(tile, source, { pad: opts.buffer + 1 });
+
+Contour.isolines(terrain, opts);        // [{ elevation, level, lines }] ordered by elevation
+const vector = Contour.render(terrain, opts);   // Vector with a `contours` layer
+vector.encode();                        // MVT bytes
+```
+
+`intervals` lists the elevation between lines, finest first; each coarser
+interval must be a whole multiple of the first and raises the `level` of the
+lines it lands on, so `[40, 200]` yields minor lines at level 0 and an index
+line at level 1 every 200. `multiplier` converts the terrain's metres first
+(`Contour.FEET`), and `Contour.intervals(zoom, { 11: [200, 1000], 13: [40, 200] })`
+picks the intervals for a zoom from a table keyed by the zoom they start at.
+
+`render` writes one multi-part LineString per elevation with `ele` and `level`
+properties; the layer and property names can be changed with a third argument.
+Lines run with higher ground on their left and are continued `buffer` terrain
+pixels past the tile edge. Elevations are sampled at the corners between
+pixels, so pad the terrain by `buffer + 1` for lines that meet across tiles.
 
 ### Node
 

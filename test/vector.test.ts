@@ -143,7 +143,7 @@ test('Vector: toGeoJSON unprojects into the tile', () => {
     const point = fc.features[0];
     assert.equal(point.id, 7);
     assert.equal(point.geometry.type, 'Point');
-    const [lng, lat] = (point.geometry as GeoJSON.Point).coordinates;
+    const [lng, lat] = point.geometry.coordinates;
     assert.ok(lng > w && lng < e && lat > s && lat < n);
 
     assert.equal(fc.features[1].geometry.type, 'MultiPoint');
@@ -151,7 +151,7 @@ test('Vector: toGeoJSON unprojects into the tile', () => {
     assert.equal(fc.features[3].geometry.type, 'Polygon');
     assert.deepEqual(fc.features[3].properties, { kind: 'box' });
 
-    const corner = (fc.features[3].geometry as GeoJSON.Polygon).coordinates[0][0];
+    const corner = fc.features[3].geometry.coordinates[0][0];
     assert.ok(Math.abs(corner[0] - w) < 1e-9);
     assert.ok(Math.abs(corner[1] - n) < 1e-9);
 

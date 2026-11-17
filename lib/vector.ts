@@ -35,9 +35,9 @@ const GEOMETRY_TYPES: Record<VectorGeometryType, 1 | 2 | 3> = { Point: 1, LineSt
 const GEOMETRY_NAMES: Record<number, VectorGeometryType | undefined> = { 1: 'Point', 2: 'LineString', 3: 'Polygon' };
 
 function closed(ring: VectorPosition[]): boolean {
-    const first = ring[0];
-    const last = ring[ring.length - 1];
-    return first[0] === last[0] && first[1] === last[1];
+    const first = ring.at(0);
+    const last = ring.at(-1);
+    return first !== undefined && last !== undefined && first[0] === last[0] && first[1] === last[1];
 }
 
 /** A named feature set within a {@link Vector} tile */
@@ -51,7 +51,7 @@ export class VectorLayer implements VectorTileLayerLike {
         const extent = opts.extent ?? DEFAULT_EXTENT;
         const version = opts.version ?? 2;
 
-        if (!name.length) throw new Error('Vector layers need a name');
+        if (name.length === 0) throw new Error('Vector layers need a name');
         if (!Number.isInteger(extent) || extent <= 0) throw new RangeError(`Invalid layer extent: ${extent}`);
         if (!Number.isInteger(version) || version < 1) throw new RangeError(`Invalid layer version: ${version}`);
 
@@ -70,7 +70,7 @@ export class VectorLayer implements VectorTileLayerLike {
         if (feature.id !== undefined && (!Number.isInteger(feature.id) || feature.id < 0)) {
             throw new RangeError(`Feature ids must be non-negative integers: ${feature.id}`);
         }
-        if (!feature.geometry.length) throw new Error('Features need at least one geometry part');
+        if (feature.geometry.length === 0) throw new Error('Features need at least one geometry part');
 
         const minimum = feature.type === 'Polygon' ? 3 : feature.type === 'LineString' ? 2 : 1;
 
@@ -87,7 +87,7 @@ export class VectorLayer implements VectorTileLayerLike {
             }
 
             const ring = part.map(([x, y]) => [x, y] as VectorPosition);
-            if (ring.length && !closed(ring)) ring.push([ring[0][0], ring[0][1]]);
+            if (ring.length > 0 && !closed(ring)) ring.push([ring[0][0], ring[0][1]]);
             if (ring.length < minimum + 1) throw new Error('Polygon rings need at least 3 distinct positions');
             return ring;
         });
@@ -114,8 +114,8 @@ export class VectorLayer implements VectorTileLayerLike {
 
     /** vt-pbf feature view; coordinates are rounded to the integer tile grid on encode */
     feature(i: number): VectorTileFeatureLike {
+        if (!Number.isInteger(i) || i < 0 || i >= this.features.length) throw new RangeError(`Layer ${this.name} has no feature ${i}`);
         const feature = this.features[i];
-        if (!feature) throw new RangeError(`Layer ${this.name} has no feature ${i}`);
 
         return {
             type: GEOMETRY_TYPES[feature.type],
@@ -133,17 +133,17 @@ export class VectorLayer implements VectorTileLayerLike {
             let geometry: Geometry;
 
             if (feature.type === 'Point') {
-                const points = feature.geometry[0].map(unproject);
+                const points = feature.geometry[0].map(position => unproject(position));
                 geometry = points.length === 1
                     ? { type: 'Point', coordinates: points[0] }
                     : { type: 'MultiPoint', coordinates: points };
             } else if (feature.type === 'LineString') {
-                const lines = feature.geometry.map(part => part.map(unproject));
+                const lines = feature.geometry.map(part => part.map(position => unproject(position)));
                 geometry = lines.length === 1
                     ? { type: 'LineString', coordinates: lines[0] }
                     : { type: 'MultiLineString', coordinates: lines };
             } else {
-                geometry = { type: 'Polygon', coordinates: feature.geometry.map(part => part.map(unproject)) };
+                geometry = { type: 'Polygon', coordinates: feature.geometry.map(part => part.map(position => unproject(position))) };
             }
 
             return {
@@ -165,13 +165,9 @@ export class Vector implements VectorTileLike {
 
     /** Get a layer, creating it on first use */
     layer(name: string, opts?: VectorLayerOptions): VectorLayer {
-        let layer = this.layers[name];
-        if (!layer) {
-            layer = new VectorLayer(name, opts);
-            this.layers[name] = layer;
-        }
+        if (!Object.hasOwn(this.layers, name)) this.layers[name] = new VectorLayer(name, opts);
 
-        return layer;
+        return this.layers[name];
     }
 
     get(name: string): VectorLayer | undefined {
@@ -179,7 +175,7 @@ export class Vector implements VectorTileLike {
     }
 
     get empty(): boolean {
-        return Object.values(this.layers).every(layer => !layer.length);
+        return Object.values(this.layers).every(layer => layer.length === 0);
     }
 
     /** Uncompressed MVT protobuf bytes */

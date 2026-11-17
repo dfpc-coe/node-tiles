@@ -112,7 +112,7 @@ test('Terrain: overzoom resamples bilinearly and rejects non-descendants', () =>
     assert.throws(() => parent.overzoom(new Tile(13, 0, 0)), RangeError);
 });
 
-function source(tiles: Record<string, Terrain>, requested: string[] = []): TerrainSource {
+function source(tiles: Record<string, Terrain | undefined>, requested: string[] = []): TerrainSource {
     return {
         encoding: 'terrarium',
         minzoom: 4,
