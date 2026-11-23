@@ -1,7 +1,7 @@
 {
     "name": "@tak-ps/node-tiles",
     "type": "module",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "description": "Tile, Raster, Terrain and Vector tile primitives with DEM utilities such as slope, hillshade and contours",
     "author": "Nick Ingalls <nick@ingalls.ca>",
     "main": "dist/index.js",
