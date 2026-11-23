@@ -11,6 +11,10 @@
 
 ### Pending
 
+### v1.3.1 - 2026-11-23
+
+- :arrow_up: Update OXLint
+
 ### v1.3.0 - 2026-11-17
 
 - :tada: `Contour` - marching squares isolines for terrain tiles with minor/index levels, unit multiplier and vector tile output
